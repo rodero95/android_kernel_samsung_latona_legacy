@@ -75,7 +75,6 @@ extern	void set_touch_i2c_gpio_init(void);
 extern void set_touch_irq_gpio_init(void);
 extern void set_touch_irq_gpio_disable(void);		// ryun 20091202
 extern int  enable_irq_handler(void);
-extern unsigned char get_touch_irq_gpio_value(void);
 extern void clear_touch_history(void);
 
 extern uint8_t read_boot_state(u8 *data);
@@ -84,8 +83,6 @@ extern uint8_t boot_write_mem(uint16_t ByteCount, unsigned char * Data );
 
 extern void disable_tsp_irq(void);
 extern void enable_tsp_irq(void);
-
-unsigned int g_i2c_debugging_enable=0;
 
 extern const unsigned char fw_bin_version;
 extern const unsigned char fw_bin_build;
@@ -2020,8 +2017,6 @@ void read_all_register(void)
 				printk("%2d : ", addr+1);
 			}
 
-//			if(get_touch_irq_gpio_value() == 1)
-//				printk("\n\n[TSP] find !!! 0x%x \n\n", (int)addr);
 		}else
 		{
 			printk("\n\n[TSP][ERROR] %s() read fail !! \n", __FUNCTION__);
@@ -2063,7 +2058,6 @@ uint8_t get_message(void)
       if (driver_setup == DRIVER_SETUP_OK)
       {
 
-//	g_i2c_debugging_enable = 1;
          if(read_mem(message_processor_address, max_message_length, atmel_msg) == READ_MEM_OK)
          {
 	      object_type = report_id_to_type(atmel_msg[0], &instance);
@@ -2089,7 +2083,6 @@ uint8_t get_message(void)
 		};
             ret_val = MESSAGE_READ_OK;
          }
-//	g_i2c_debugging_enable = 0;
       }
       read_in_progress = 0;
    }
@@ -3236,7 +3229,7 @@ U8 read_changeline(void)
 {
     //return(gpio_get_pin_value(CHANGELINE));
 #ifdef __CONFIG_SAMSUNG__
-    return get_touch_irq_gpio_value();
+    return gpio_get_value(OMAP_GPIO_TOUCH_INT);
 #endif
 
 }
@@ -4590,57 +4583,153 @@ ssize_t set_total_store(struct device *dev, struct device_attribute *attr, const
 
 ssize_t set_write_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-  int tmp=-1;
+	int tmp = -1;
+	int i = 0;
 
-	printk("\n=========== [TSP] Configure SET for normal ============\n");
-	printk("=== set_power - GEN_POWERCONFIG_T7 ===\n");
-	printk("0. idleacqint=%3d, 1. actvacqint=%3d, 2. actv2idleto=%3d\n", config_normal.power_config.idleacqint, config_normal.power_config.actvacqint, config_normal.power_config.actv2idleto );  
+	i += scnprintf(buf + i, PAGE_SIZE - i, "       === set_power - GEN_POWERCONFIG_T7 ===\n");
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 0.idleacqint = %3d         1.actvacqint = %3d\n",
+				config_normal.power_config.idleacqint,
+				config_normal.power_config.actvacqint);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 2.actv2idleto = %3d\n",
+				config_normal.power_config.actv2idleto);
 
-	printk("=== set_acquisition - GEN_ACQUIRECONFIG_T8 ===\n");
-	printk("0. chrgtime=%3d,   1. reserved=%3d,   2. tchdrift=%3d\n",config_normal.acquisition_config.chrgtime,config_normal.acquisition_config.reserved,config_normal.acquisition_config.tchdrift); 
-	printk("3. driftst=%3d,    4. tchautocal=%3d, 5. sync=%3d\n", config_normal.acquisition_config.driftst,config_normal.acquisition_config.tchautocal,config_normal.acquisition_config.sync);
-	printk("6. atchcalst=%3d,  7. atchcalsthr=%3d\n", config_normal.acquisition_config.atchcalst , config_normal.acquisition_config.atchcalsthr); 
+	i += scnprintf(buf + i, PAGE_SIZE - i, "\n   === set_acquisition - GEN_ACQUIRECONFIG_T8  ===\n");
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 0.chrgtime = %3d           1.reserved = %3d\n",
+				config_normal.acquisition_config.chrgtime,
+				config_normal.acquisition_config.reserved);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 2.tchdrift = %3d           3.driftst = %3d\n",
+				config_normal.acquisition_config.tchdrift,
+				config_normal.acquisition_config.driftst);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 4.tchautocal = %3d         5.sync = %3d\n",
+				config_normal.acquisition_config.tchautocal,
+				config_normal.acquisition_config.sync);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 6.atchcalst = %3d          7.atchcalsthr = %3d\n",
+				config_normal.acquisition_config.atchcalst,
+				config_normal.acquisition_config.atchcalsthr);
 
-	printk("=== set_touchscreen - TOUCH_MULTITOUCHSCREEN_T9 ===\n");
-	printk("0. ctrl=%3d,       1. xorigin=%3d,    2. yorigin=%3d\n",  config_normal.touchscreen_config.ctrl, config_normal.touchscreen_config.xorigin, config_normal.touchscreen_config.yorigin  );
-	printk("3. xsize=%3d,      4. ysize=%3d,      5. akscfg=%3d\n", config_normal.touchscreen_config.xsize, config_normal.touchscreen_config.ysize , config_normal.touchscreen_config.akscfg  );
-	printk("6. blen=%3d,       7. tchthr=%3d,     8. tchdi=%3d\n", config_normal.touchscreen_config.blen, config_normal.touchscreen_config.tchthr, config_normal.touchscreen_config.tchdi );
-	printk("9. orientate=%3d,  10.mrgtimeout=%3d, 11.movhysti=%3d\n",config_normal.touchscreen_config.orientate,config_normal.touchscreen_config.mrgtimeout, config_normal.touchscreen_config.movhysti);
-	printk("12.movhystn=%3d,   13.movfilter=%3d,  14.numtouch=%3d\n",config_normal.touchscreen_config.movhystn, config_normal.touchscreen_config.movfilter ,config_normal.touchscreen_config.numtouch );
-	printk("15.mrghyst=%3d,    16.mrgthr=%3d,     17.tchamphyst=%3d\n",config_normal.touchscreen_config.mrghyst,config_normal.touchscreen_config.mrgthr,config_normal.touchscreen_config.tchamphyst );
-	printk("18.xrange=%3d,       19.yrange=%3d,       20.xloclip=%3d\n",config_normal.touchscreen_config.xrange, config_normal.touchscreen_config.yrange, config_normal.touchscreen_config.xloclip );
-	printk("21.xhiclip=%3d,    22.yloclip=%3d,    23.yhiclip=%3d\n", config_normal.touchscreen_config.xhiclip, config_normal.touchscreen_config.yloclip ,config_normal.touchscreen_config.yhiclip );
-	printk("24.xedgectrl=%3d,  25.xedgedist=%3d,  26.yedgectrl=%3d\n",config_normal.touchscreen_config.xedgectrl,config_normal.touchscreen_config.xedgedist,config_normal.touchscreen_config.yedgectrl);
-	printk("27.yedgedist=%3d,  28.jumplimit=%3d\n", config_normal.touchscreen_config.yedgedist, config_normal.touchscreen_config.jumplimit );
+	i += scnprintf(buf + i, PAGE_SIZE - i, "\n === set_touchscreen - TOUCH_MULTITOUCHSCREEN_T9 ===\n");
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 0.ctrl = %3d               1.xorigin = %3d\n",
+				config_normal.touchscreen_config.ctrl,
+				config_normal.touchscreen_config.xorigin);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 2.yorigin = %3d            3.xsize = %3d\n",
+				config_normal.touchscreen_config.yorigin,
+				config_normal.touchscreen_config.xsize);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 4.ysize = %3d              5.akscfg = %3d\n",
+				config_normal.touchscreen_config.ysize,
+				config_normal.touchscreen_config.akscfg);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 6.blen = %3d               7.tchthr = %3d\n",
+				config_normal.touchscreen_config.blen,
+				config_normal.touchscreen_config.tchthr);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 8.tchdi = %3d              9.orientate = %3d\n",
+				config_normal.touchscreen_config.tchdi,
+				config_normal.touchscreen_config.orientate);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "10.mrgtimeout = %3d        11.movhysti = %3d\n",
+				config_normal.touchscreen_config.mrgtimeout,
+				config_normal.touchscreen_config.movhysti);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "12.movhystn = %3d          13.movfilter = %3d\n",
+				config_normal.touchscreen_config.movhystn,
+				config_normal.touchscreen_config.movfilter);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "14.numtouch = %3d          15.mrghyst = %3d\n",
+				config_normal.touchscreen_config.numtouch,
+				config_normal.touchscreen_config.mrghyst);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "16.mrgthr = %3d            17.tchamphyst = %3d\n",
+				config_normal.touchscreen_config.mrgthr,
+				config_normal.touchscreen_config.tchamphyst);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "18.xrange = %3d            19.yrange = %3d\n",
+				config_normal.touchscreen_config.xrange,
+				config_normal.touchscreen_config.yrange);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "20.xloclip = %3d           21.xhiclip = %3d\n",
+				config_normal.touchscreen_config.xloclip,
+				config_normal.touchscreen_config.xhiclip);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "22.yloclip = %3d           23.yhiclip = %3d\n",
+				config_normal.touchscreen_config.yloclip,
+				config_normal.touchscreen_config.yhiclip);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "24.xedgectrl = %3d         25.xedgedist = %3d\n",
+				config_normal.touchscreen_config.xedgectrl,
+				config_normal.touchscreen_config.xedgedist);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "26.yedgectrl = %3d         27.yedgedist = %3d\n",
+				config_normal.touchscreen_config.yedgectrl,
+				config_normal.touchscreen_config.yedgedist);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "28.jumplimit = %3d\n",
+				config_normal.touchscreen_config.jumplimit);
 
-	printk("=== set_keyarray - TOUCH_KEYARRAY_T15 ===\n");
-	printk("0. ctrl=%3d,       1. xorigin=%3d,    2. yorigin=%3d\n", config_normal.keyarray_config.ctrl, config_normal.keyarray_config.xorigin, config_normal.keyarray_config.yorigin); 
-	printk("3. xsize=%3d,      4. ysize=%3d,      5. akscfg=%3d\n", config_normal.keyarray_config.xsize, config_normal.keyarray_config.ysize, config_normal.keyarray_config.akscfg );
-	printk("6. blen=%3d,       7. tchthr=%3d,     8. tchdi=%3d\n", config_normal.keyarray_config.blen, config_normal.keyarray_config.tchthr, config_normal.keyarray_config.tchdi  );
+	i += scnprintf(buf + i, PAGE_SIZE - i, "\n      === set_keyarray - TOUCH_KEYARRAY_T15 ===\n");
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 0.ctrl = %3d               1.xorigin = %3d\n",
+				config_normal.keyarray_config.ctrl,
+				config_normal.keyarray_config.xorigin);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 2.yorigin = %3d            3.xsize = %3d\n",
+				config_normal.keyarray_config.yorigin,
+				config_normal.keyarray_config.xsize);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 4.ysize = %3d              5.akscfg = %3d\n",
+				config_normal.keyarray_config.ysize,
+				config_normal.keyarray_config.akscfg);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 6.blen = %3d               7.tchthr = %3d\n",
+				config_normal.keyarray_config.blen,
+				config_normal.keyarray_config.tchthr);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 8.tchdi = %3d\n",
+				config_normal.keyarray_config.tchdi);
 
-	printk("=== set_grip - PROCI_GRIPFACESUPRESSION_T20 ===\n");
-	printk("0. ctrl=%3d,       1. xlogrip=%3d,    2. xhigrip=%3d\n",config_normal.gripfacesuppression_config.ctrl, config_normal.gripfacesuppression_config.xlogrip, config_normal.gripfacesuppression_config.xhigrip );
-	printk("3. ylogrip=%3d     4. yhigrip=%3d,    5. maxtchs=%3d\n",config_normal.gripfacesuppression_config.ylogrip,config_normal.gripfacesuppression_config.yhigrip , config_normal.gripfacesuppression_config.maxtchs );
-	printk("6. reserved=%3d,  7. szthr1=%3d,     8. szthr2=%3d\n"  , config_normal.gripfacesuppression_config.reserved , config_normal.gripfacesuppression_config.szthr1, config_normal.gripfacesuppression_config.szthr2 );
-	printk("9. shpthr1=%3d     10.shpthr2=%3d,    11.supextto=%3d\n",config_normal.gripfacesuppression_config.shpthr1 , config_normal.gripfacesuppression_config.shpthr2 , config_normal.gripfacesuppression_config.supextto );
+	i += scnprintf(buf + i, PAGE_SIZE - i, "\n   === set_grip - PROCI_GRIPFACESUPRESSION_T20 ===\n");
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 0.ctrl = %3d               1.xlogrip = %3d\n",
+				config_normal.gripfacesuppression_config.ctrl,
+				config_normal.gripfacesuppression_config.xlogrip);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 2.xhigrip = %3d            3.ylogrip = %3d\n",
+				config_normal.gripfacesuppression_config.xhigrip,
+				config_normal.gripfacesuppression_config.ylogrip);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 4.yhigrip = %3d            5.maxtchs = %3d\n",
+				config_normal.gripfacesuppression_config.yhigrip,
+				config_normal.gripfacesuppression_config.maxtchs);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 6.reserved = %3d           7.szthr1 = %3d\n",
+				config_normal.gripfacesuppression_config.reserved,
+				config_normal.gripfacesuppression_config.szthr1);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 8.szthr2 = %3d             9.shpthr1 = %3d\n",
+				config_normal.gripfacesuppression_config.szthr2,
+				config_normal.gripfacesuppression_config.shpthr1);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "10.shpthr2 = %3d           11.supextto = %3d\n",
+				config_normal.gripfacesuppression_config.shpthr2,
+				config_normal.gripfacesuppression_config.supextto);
 
-	printk("=== set_noise ===\n");
-	printk("0. ctrl = %3d,         1. gcaful(2bts)=%d\n", config_normal.noise_suppression_config.ctrl, config_normal.noise_suppression_config.gcaful); 
-	printk("2. gcafll(2bts)=%5d, 3. actvgcafvalid =%d\n", config_normal.noise_suppression_config.gcafll ,  config_normal.noise_suppression_config.actvgcafvalid); 
-	printk("4. noisethr=%3d,   5.freqhopscale=%3d,6. freq[0]=%3d\n", config_normal.noise_suppression_config.noisethr, config_normal.noise_suppression_config.freqhopscale, config_normal.noise_suppression_config.freq[0] ); 
-	printk("7. freq[1]=%3d,    8. freq[2]=%3d,    9. freq[3]=%3d\n", config_normal.noise_suppression_config.freq[1],  config_normal.noise_suppression_config.freq[2] , config_normal.noise_suppression_config.freq[3]); 
-	printk("10.freq[4]=%3d,    11.idlegcafvalid=%3d\n", config_normal.noise_suppression_config.freq[4] , config_normal.noise_suppression_config.idlegcafvalid); 
+	i += scnprintf(buf + i, PAGE_SIZE - i, "\n                  === set_noise ===\n");
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 0.ctrl  =  %3d             1.gcaful(2bts) = %d\n",
+				config_normal.gripfacesuppression_config.ctrl,
+				config_normal.gripfacesuppression_config.xlogrip);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 2.gcafll(2bts) = %5d     3.actvgcafvalid = %d\n",
+				config_normal.gripfacesuppression_config.xhigrip,
+				config_normal.gripfacesuppression_config.ylogrip);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 4.noisethr = %3d           5.freqhopscale = %3d\n",
+				config_normal.gripfacesuppression_config.yhigrip,
+				config_normal.gripfacesuppression_config.maxtchs);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 6.freq[0] = %3d            7.freq[1] = %3d\n",
+				config_normal.gripfacesuppression_config.reserved,
+				config_normal.gripfacesuppression_config.szthr1);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 8.freq[2] = %3d            9.freq[3] = %3d\n",
+				config_normal.gripfacesuppression_config.szthr2,
+				config_normal.gripfacesuppression_config.shpthr1);
+	i += scnprintf(buf + i, PAGE_SIZE - i, "10.freq[4] = %3d           11.idlegcafvalid = %3d\n",
+				config_normal.gripfacesuppression_config.shpthr2,
+				config_normal.gripfacesuppression_config.supextto);
 
-	printk("=== set_total ===\n");
-	printk("0 , linearization_config.ctrl = %d\n", config_normal.linearization_config.ctrl );
-	printk("1 , twotouch_gesture_config.ctrl = %d\n", config_normal.twotouch_gesture_config.ctrl );
-	printk("2 , onetouch_gesture_config.ctrl = %d\n",config_normal.onetouch_gesture_config.ctrl );
-	printk("3 , selftest_config.ctrl = %d\n", config_normal.selftest_config.ctrl);
-	printk("4. cte_config.ctrl=%3d,  5. cte_config.cmd=%3d\n", config_normal.cte_config.ctrl, config_normal.cte_config.cmd );
-	printk("6. cte_config.mode=%3d,  7. cte_config.idlegcafdepth=%3d\n", config_normal.cte_config.mode,  config_normal.cte_config.idlegcafdepth );
-	printk("8. cte_config.actvgcafdepth=%3d,  9.cte_config.voltage=%3d\n", config_normal.cte_config.actvgcafdepth, config_normal.cte_config.voltage );
-//	printk("9 , DELAY_TIME = %d\n", DELAY_TIME );
-	printk("================= end ======================\n");
+	i += scnprintf(buf + i, PAGE_SIZE - i, "\n                 === set_total  ===\n");
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 0.linearization_config.ctrl = %d\n",
+				config_normal.linearization_config.ctrl);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 1.twotouch_gesture_config.ctrl = %d\n",
+				config_normal.twotouch_gesture_config.ctrl);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 2.onetouch_gesture_config.ctrl = %d\n",
+				config_normal.onetouch_gesture_config.ctrl);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 3.selftest_config.ctrl = %d\n",
+				config_normal.selftest_config.ctrl);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 4.cte_config.ctrl = %3d\n",
+				config_normal.cte_config.ctrl);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 5.cte_config.cmd = %3d\n",
+				config_normal.cte_config.cmd);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 6.cte_config.mode = %3d\n",
+				config_normal.cte_config.mode);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 7.cte_config.idlegcafdepth = %3d\n",
+				config_normal.cte_config.idlegcafdepth);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 8.cte_config.actvgcafdepth = %3d\n",
+				config_normal.cte_config.actvgcafdepth);
+	i += scnprintf(buf + i, PAGE_SIZE - i, " 9.cte_config.voltage = %3d\n",
+				config_normal.cte_config.voltage);
 
 	/* set all configuration */
 	tmp = set_all_config(config_normal);
@@ -4668,7 +4757,7 @@ ssize_t set_write_show(struct device *dev, struct device_attribute *attr, char *
 	else
 		printk("[TSP] set all configs fail : error : %d\n", __LINE__);
 */
-	return 0;
+	return i;
 }
 ssize_t set_write_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -4690,6 +4779,7 @@ int set_tsp_for_ta_detect(int state)
 	uint8_t status;
 	uint8_t object_size;
 	static uint8_t tchthr_old = 32;
+	static int boot_complete = 0;
 
 	if(qt60224_notfound_flag == 1)
 	{
@@ -4727,9 +4817,15 @@ int set_tsp_for_ta_detect(int state)
 	if (down_interruptible(&g_tsp_mutex)) 
 		return -ERESTARTSYS;
 
+	if (is_boot_state == 0 && !boot_complete)
+		boot_complete = 1;
+
 	if(state)
 	{
-		tchthr_old = config_normal.touchscreen_config.tchthr;
+		//consider the changes of tchthr valid only only after the execution of bootcomplete()
+		if (boot_complete)
+			tchthr_old = config_normal.touchscreen_config.tchthr;
+
 		config_normal.touchscreen_config.tchthr = 50; //touchscreen_config.tchthr = 70;
 		config_normal.noise_suppression_config.noisethr = 20; //noise_suppression_config.noisethr = 20;		   
 
