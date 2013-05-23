@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/delay.h>
+#include <linux/gpio.h>
 #include <mach/hardware.h>
 #include <plat/control.h>
 #include <plat/mmc.h>
@@ -33,6 +34,9 @@ static u16 control_devconf1_offset;
 static u16 control_mmc1;
 
 #define HSMMC_NAME_LEN	9
+
+#define WL127X_WIFI_PMENA_GPIO	160
+#define WL127X_WIFI_IRQ_GPIO	99
 
 static struct hsmmc_controller {
 	char				name[HSMMC_NAME_LEN + 1];
@@ -227,47 +231,24 @@ static int nop_mmc_set_power(struct device *dev, int slot, int power_on,
 	return 0;
 }
 
+int wifi_set_power(struct device *dev, int slot, int power_on, int vdd)
+{
+	static int power_state;
+	printk("Powering %s wifi\n", (power_on ? "on" : "off"));
+	if (power_on == power_state) {
+		return 0;
+	}
+	power_state = power_on;
+	if (power_on) {
+		gpio_set_value(WL127X_WIFI_PMENA_GPIO, 1);
+
+	} else {
+		gpio_set_value(WL127X_WIFI_PMENA_GPIO, 0);
+	}
+	return 0;
+}
+
 static struct omap_mmc_platform_data *hsmmc_data[OMAP44XX_NR_MMC] __initdata;
-
-#ifdef CONFIG_TIWLAN_SDIO
-static struct sdio_embedded_func wifi_func_array[] = {
-	{
-		.f_class        = SDIO_CLASS_NONE,
-		.f_maxblksize   = 512,
-	},
-	{
-		.f_class        = SDIO_CLASS_WLAN,
-		.f_maxblksize   = 512,
-	},
-};
-
-static struct embedded_sdio_data omap_wifi_emb_data = {
-	.cis    = {
-		.vendor         = SDIO_VENDOR_ID_TI,
-		.device         = SDIO_DEVICE_ID_TI_WL12xx,
-		.blksize        = 512,
-#ifdef CONFIG_ARCH_OMAP3
-		.max_dtr        = 24000000,
-#else
-		.max_dtr        = 48000000,
-#endif
-	},
-	.cccr   = {
-		.multi_block	= 1,
-		.low_speed	= 0,
-		.wide_bus	= 1,
-		.high_power	= 0,
-#ifdef CONFIG_ARCH_OMAP3
-		.high_speed	= 0,
-#else
-		.high_speed	= 1,
-#endif
-		.disable_cd	= 1,
-	},
-	.funcs  = wifi_func_array,
-	.quirks = MMC_QUIRK_VDD_165_195 | MMC_QUIRK_LENIENT_FUNC0,
-};
-#endif
 
 void __init omap2_hsmmc_init(struct omap2_hsmmc_info *controllers)
 {
@@ -324,23 +305,6 @@ void __init omap2_hsmmc_init(struct omap2_hsmmc_info *controllers)
 		else
 			snprintf(hc->name, ARRAY_SIZE(hc->name),
 				"mmc%islot%i", c->mmc, 1);
-
-#ifdef CONFIG_TIWLAN_SDIO
-		if (c->mmc == CONFIG_TIWLAN_MMC_CONTROLLER) {
-			mmc->slots[0].embedded_sdio = &omap_wifi_emb_data;
-			mmc->slots[0].register_status_notify =
-				&omap_wifi_status_register;
-			mmc->slots[0].card_detect = &omap_wifi_status;
-		}
-#endif
-
-#ifndef CONFIG_TIWLAN_SDIO
-/* CHKIM 2011/04/01 for TI-WIFI */
-	if (c->mmc == /* CONFIG_TIWLAN_MMC_CONTROLLER*/ 3) 
-	{
-		mmc->name = "TIWLAN_SDIO";
-	}
-#endif
 		mmc->slots[0].name = hc->name;
 		mmc->nr_slots = 1;
 		mmc->slots[0].caps = c->caps;
@@ -445,6 +409,7 @@ void __init omap2_hsmmc_init(struct omap2_hsmmc_info *controllers)
 			}
 #ifdef CONFIG_TIWLAN_SDIO
 			mmc->slots[0].ocr_mask  = MMC_VDD_165_195;
+			mmc->slots[0].set_power = wifi_set_power;
 #endif
 			break;
 		case 4:
@@ -454,6 +419,7 @@ void __init omap2_hsmmc_init(struct omap2_hsmmc_info *controllers)
 			mmc->slots[0].after_set_reg = NULL;
 #ifdef CONFIG_TIWLAN_SDIO
 			mmc->slots[0].ocr_mask  = MMC_VDD_165_195;
+			mmc->slots[0].set_power = wifi_set_power;
 #endif
 			break;
 		default:
