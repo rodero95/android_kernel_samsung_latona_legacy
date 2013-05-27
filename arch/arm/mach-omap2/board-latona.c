@@ -37,6 +37,9 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
+#include <linux/ti_wilink_st.h>
+#include <linux/wl12xx.h>
+#include <linux/skbuff.h>
 
 #include <asm/setup.h>
 #include <asm/mach-types.h>
@@ -66,6 +69,9 @@
 #include <mach/sec_param.h>
 #include <mach/sec_common.h>
 #include <mach/sec_mux.h>
+
+#define LATONA_GPIO_BT_NRST 63
+#define WILINK_UART_DEV_NAME            "/dev/ttyS1"
 
 #ifdef CONFIG_OMAP_MUX
 extern struct omap_board_mux *sec_board_mux_ptr;
@@ -374,6 +380,69 @@ static void __init get_omap_device_type(void)
 	}
 }
 
+static int plat_kim_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	/* TODO: wait for HCI-LL sleep */
+	return 0;
+}
+static int plat_kim_resume(struct platform_device *pdev)
+{
+	return 0;
+}
+
+/* wl127x BT, FM, GPS connectivity chip */
+struct ti_st_plat_data wilink_pdata = {
+	.nshutdown_gpio = LATONA_GPIO_BT_NRST,
+	.dev_name = WILINK_UART_DEV_NAME,
+	.flow_cntrl = 1,
+	.baud_rate = 3000000,
+	.suspend = plat_kim_suspend,
+	.resume = plat_kim_resume,
+};
+static struct platform_device wl127x_device = {
+	.name           = "kim",
+	.id             = -1,
+	.dev.platform_data = &wilink_pdata,
+};
+static struct platform_device btwilink_device = {
+	.name = "btwilink",
+	.id = -1,
+};
+
+static struct platform_device *latona_devices[] __initdata = {
+	&wl127x_device,
+	&btwilink_device,
+};
+
+/* Fix to prevent VIO leakage on wl127x */
+static int wl127x_vio_leakage_fix(void)
+{
+	int ret = 0;
+
+	pr_info(" wl127x_vio_leakage_fix\n");
+
+	ret = gpio_request(LATONA_GPIO_BT_NRST, "wl127x_bten");
+	if (ret < 0) {
+		pr_err("wl127x_bten gpio_%d request fail",
+			LATONA_GPIO_BT_NRST);
+		goto fail;
+	}
+
+	gpio_direction_output(LATONA_GPIO_BT_NRST, 1);
+	mdelay(10);
+	gpio_direction_output(LATONA_GPIO_BT_NRST, 0);
+	udelay(64);
+
+	gpio_free(LATONA_GPIO_BT_NRST);
+fail:
+	return ret;
+}
+
+static struct wl12xx_platform_data latona_wlan_data __initdata = {
+	.irq = OMAP_GPIO_IRQ(LATONA_WIFI_IRQ_GPIO),
+	.board_ref_clock = WL12XX_REFCLOCK_38,
+};
+
 static void __init omap_board_init_irq(void)
 {
 	omap_board_config = omap_board_sec_config;
@@ -466,6 +535,8 @@ static void __init omap_board_init(void)
 #endif
 
 	sec_common_init_post();
+	platform_add_devices(latona_devices, ARRAY_SIZE(latona_devices));
+	wl127x_vio_leakage_fix();
 }
 
 static void __init omap_board_fixup(struct machine_desc *desc,
