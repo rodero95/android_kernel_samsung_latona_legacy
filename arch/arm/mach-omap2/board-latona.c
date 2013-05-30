@@ -32,11 +32,13 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/gpio.h>
+#include <linux/skbuff.h>
 #include <linux/bootmem.h>
 #include <linux/reboot.h>
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
+#include <linux/wl12xx.h>
 
 #include <asm/setup.h>
 #include <asm/mach-types.h>
@@ -190,6 +192,17 @@ static void __init omap_board_map_io(void)
 
 static struct omap_board_config_kernel omap_board_sec_config[] __initdata = {
 };
+
+static struct wl12xx_platform_data latona_wlan_data __initdata = {
+	.irq = OMAP_GPIO_IRQ(LATONA_WIFI_IRQ_GPIO),
+	.board_ref_clock = WL12XX_REFCLOCK_38,
+};
+
+static void latona_wifi_init(void)
+{
+	if (wl12xx_set_platform_data(&latona_wlan_data))
+		pr_err("Error setting wl12xx data\n");
+}
 
 #define GPIO_MSECURE_PIN_ON_HS		1	//TI Patch: MSECURE Pin mode change
 
@@ -452,6 +465,7 @@ static void __init omap_board_init(void)
 	printk("-----------------------------------------------------------\n");
 	printk("\n");
 
+	latona_wifi_init();
 	omap_board_peripherals_init();
 	omap_board_display_init(OMAP_DSS_VENC_TYPE_COMPOSITE);
 	usb_uhhtll_init(&usbhs_pdata);

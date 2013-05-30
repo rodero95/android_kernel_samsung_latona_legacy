@@ -31,6 +31,9 @@
 
 #include "board-latona-mtd.h"
 
+#define LATONA_WIFI_PMENA_GPIO		160
+#define LATONA_WIFI_IRQ_GPIO		99
+
 extern void ldp_flash_init(void);
 extern void twl4030_bci_battery_init(void);
 
