@@ -35,10 +35,13 @@
 #include <linux/gpio.h>
 #include <linux/i2c/twl.h>
 #include <linux/regulator/machine.h>
+#include <linux/regulator/fixed.h>
+#include <linux/wl12xx.h>
 #include <linux/mmc/host.h>
 #include <linux/leds.h>
 #include "twl4030.h"
 #include <linux/wakelock.h>
+
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -344,6 +347,10 @@ static struct regulator_consumer_supply omap_board_vmmc1_supply = {
 static struct regulator_consumer_supply omap_board_vmmc2_supply = {
 	.supply = "vmmc",
 };
+static struct regulator_consumer_supply omap_board_vmmc3_supply = {
+	.supply		= "vmmc",
+	.dev_name	= "omap_hsmmc.2",
+};
 static struct regulator_consumer_supply omap_board_vaux1_supply = {
 	.supply = "vaux1",
 };
@@ -403,6 +410,23 @@ static struct regulator_init_data omap_board_vmmc2 = {
 	.consumer_supplies      = &omap_board_vmmc2_supply,
 };
 
+static struct regulator_init_data omap_board_vmmc3 = {
+	.constraints = {
+		.valid_ops_mask	= REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies = &omap_board_vmmc3_supply,
+};
+
+static struct fixed_voltage_config omap_board_vwlan = {
+	.supply_name		= "vwl1271",
+	.microvolts		= 1800000, /* 1.8V */
+	.gpio			= LATONA_WIFI_PMENA_GPIO,
+	.startup_delay		= 70000, /* 70msec */
+	.enable_high		= 1,
+	.enabled_at_boot	= 0,
+	.init_data		= &omap_board_vmmc3,
+};
 
 /* VAUX1 for PL_SENSOR */
 static struct regulator_init_data omap_board_aux1 = {
@@ -446,6 +470,14 @@ static struct regulator_init_data omap_board_vsim = {
 	},
 	.num_consumer_supplies  = 1,
 	.consumer_supplies      = &omap_board_vsim_supply,
+};
+
+static struct platform_device omap_vwlan_device = {
+	.name		= "reg-fixed-voltage",
+	.id		= 1,
+	.dev = {
+		.platform_data	= &omap_board_vwlan,
+	},
 };
 
 static struct omap2_hsmmc_info mmc[] = {
@@ -1162,6 +1194,7 @@ void __init omap_board_peripherals_init(void)
        
 	spi_register_board_info( board_spi_board_info, ARRAY_SIZE( board_spi_board_info ) );
        
+	   platform_device_register(&omap_vwlan_device);
 	atmel_dev_init();
 	omap_serial_init(omap_serial_platform_data);
 	usb_musb_init(&musb_board_data);
