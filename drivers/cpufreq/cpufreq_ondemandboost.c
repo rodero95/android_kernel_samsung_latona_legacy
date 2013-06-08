@@ -1,5 +1,5 @@
 /*
- *  drivers/cpufreq/cpufreq_ondemand.c
+ *  drivers/cpufreq/cpufreq_ondemandboost.c
  *
  *  Copyright (C)  2001 Russell King
  *            (C)  2003 Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>.
@@ -37,6 +37,10 @@
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
+#define DEFAULT_FREQ_BOOST_TIME			(500000)
+#define MAX_FREQ_BOOST_TIME			(5000000)
+
+u64 freq_boosted_time;
 
 /*
  * The polling frequency of this governor depends on the capability of
@@ -60,11 +64,11 @@ static void do_dbs_timer(struct work_struct *work);
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				unsigned int event);
 
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND
+#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMANDBOOST
 static
 #endif
-struct cpufreq_governor cpufreq_gov_ondemand = {
-       .name                   = "ondemand",
+struct cpufreq_governor cpufreq_gov_ondemandboost = {
+       .name                   = "ondemandboost",
        .governor               = cpufreq_governor_dbs,
        .max_transition_latency = TRANSITION_LATENCY_LIMIT,
        .owner                  = THIS_MODULE,
@@ -103,7 +107,7 @@ static unsigned int dbs_enable;	/* number of CPUs using this policy */
  */
 static DEFINE_MUTEX(dbs_mutex);
 
-static struct workqueue_struct	*kondemand_wq;
+static struct workqueue_struct	*kondemandboost_wq;
 
 static struct dbs_tuners {
 	unsigned int sampling_rate;
@@ -113,6 +117,9 @@ static struct dbs_tuners {
 	unsigned int sampling_down_factor;
 	unsigned int powersave_bias;
 	unsigned int io_is_busy;
+	unsigned int boosted;
+	unsigned int freq_boost_time;
+	unsigned int boostfreq;
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
@@ -120,6 +127,8 @@ static struct dbs_tuners {
 			    DEF_FREQUENCY_DOWN_DIFFERENTIAL,
 	.ignore_nice = 0,
 	.powersave_bias = 0,
+	.freq_boost_time = DEFAULT_FREQ_BOOST_TIME,
+	.boostfreq = 0,
 };
 
 static inline cputime64_t get_cpu_idle_time_jiffy(unsigned int cpu,
@@ -220,18 +229,18 @@ static unsigned int powersave_bias_target(struct cpufreq_policy *policy,
 	return freq_hi;
 }
 
-static void ondemand_powersave_bias_init_cpu(int cpu)
+static void ondemandboost_powersave_bias_init_cpu(int cpu)
 {
 	struct cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 	dbs_info->freq_table = cpufreq_frequency_get_table(cpu);
 	dbs_info->freq_lo = 0;
 }
 
-static void ondemand_powersave_bias_init(void)
+static void ondemandboost_powersave_bias_init(void)
 {
 	int i;
 	for_each_online_cpu(i) {
-		ondemand_powersave_bias_init_cpu(i);
+		ondemandboost_powersave_bias_init_cpu(i);
 	}
 }
 
@@ -245,7 +254,7 @@ static ssize_t show_sampling_rate_min(struct kobject *kobj,
 
 define_one_global_ro(sampling_rate_min);
 
-/* cpufreq_ondemand Governor Tunables */
+/* cpufreq_ondemandboost Governor Tunables */
 #define show_one(file_name, object)					\
 static ssize_t show_##file_name						\
 (struct kobject *kobj, struct attribute *attr, char *buf)              \
@@ -258,6 +267,9 @@ show_one(up_threshold, up_threshold);
 show_one(sampling_down_factor, sampling_down_factor);
 show_one(ignore_nice_load, ignore_nice);
 show_one(powersave_bias, powersave_bias);
+show_one(boostpulse, boosted);
+show_one(boosttime, freq_boost_time);
+show_one(boostfreq, boostfreq);
 
 static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 				   const char *buf, size_t count)
@@ -370,7 +382,40 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 		input = 1000;
 
 	dbs_tuners_ins.powersave_bias = input;
-	ondemand_powersave_bias_init();
+	ondemandboost_powersave_bias_init();
+	return count;
+}
+
+
+static ssize_t store_boostpulse(struct kobject *kobj, struct attribute *attr,
+				const char *buf, size_t count)
+{
+	int ret;
+	unsigned int input;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret < 0)
+		return ret;
+
+	if (input > 1 && input <= MAX_FREQ_BOOST_TIME)
+		dbs_tuners_ins.freq_boost_time = input;
+	else
+		dbs_tuners_ins.freq_boost_time = DEFAULT_FREQ_BOOST_TIME;
+
+	dbs_tuners_ins.boosted = 1;
+	freq_boosted_time = ktime_to_us(ktime_get());
+	return count;
+}
+
+static ssize_t store_boostfreq(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.boostfreq = input;
 	return count;
 }
 
@@ -380,6 +425,8 @@ define_one_global_rw(up_threshold);
 define_one_global_rw(sampling_down_factor);
 define_one_global_rw(ignore_nice_load);
 define_one_global_rw(powersave_bias);
+define_one_global_rw(boostpulse);
+define_one_global_rw(boostfreq);
 
 static struct attribute *dbs_attributes[] = {
 	&sampling_rate_min.attr,
@@ -389,12 +436,14 @@ static struct attribute *dbs_attributes[] = {
 	&ignore_nice_load.attr,
 	&powersave_bias.attr,
 	&io_is_busy.attr,
+	&boostpulse.attr,
+	&boostfreq.attr,
 	NULL
 };
 
 static struct attribute_group dbs_attr_group = {
 	.attrs = dbs_attributes,
-	.name = "ondemand",
+	.name = "ondemandboost",
 };
 
 /************************** sysfs end ************************/
@@ -416,10 +465,21 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	struct cpufreq_policy *policy;
 	unsigned int j;
+	unsigned int boostfreq;
 
 	this_dbs_info->freq_lo = 0;
 	policy = this_dbs_info->cur_policy;
-
+	/* Only core0 controls the boost */
+	if (dbs_tuners_ins.boosted && policy->cpu == 0) {
+		if (ktime_to_us(ktime_get()) - freq_boosted_time >=
+					dbs_tuners_ins.freq_boost_time) {
+			dbs_tuners_ins.boosted = 0;
+		}
+	}
+	if (dbs_tuners_ins.boostfreq != 0)
+		boostfreq = dbs_tuners_ins.boostfreq;
+	else
+		boostfreq = policy->max;
 	/*
 	 * Every sampling_rate, we check, if current idle time is less
 	 * than 20% (default), then we try to increase frequency
@@ -477,7 +537,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		}
 
 		/*
-		 * For the purpose of ondemand, waiting for disk IO is an
+		 * For the purpose of ondemandboost, waiting for disk IO is an
 		 * indication that you're performance critical, and not that
 		 * the system is actually idle. So subtract the iowait time
 		 * from the cpu idle time.
@@ -510,6 +570,13 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		return;
 	}
 
+	/* check for frequency boost */
+	if (dbs_tuners_ins.boosted && policy->cur < boostfreq) {
+		dbs_freq_increase(policy, boostfreq);
+		dbs_tuners_ins.boostfreq = policy->cur;
+		return;
+	}
+
 	/* Check for frequency decrease */
 	/* if we cannot reduce the frequency anymore, break out early */
 	if (policy->cur == policy->min)
@@ -524,6 +591,10 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		unsigned int freq_next;
 		freq_next = max_load_freq / dbs_tuners_ins.adj_up_threshold;
 
+		if (dbs_tuners_ins.boosted &&
+				freq_next < boostfreq) {
+			freq_next = boostfreq;
+		}
 		/* No longer fully busy, reset rate_mult */
 		this_dbs_info->rate_mult = 1;
 
@@ -577,7 +648,7 @@ static void do_dbs_timer(struct work_struct *work)
 			dbs_info->freq_lo, CPUFREQ_RELATION_H);
 		delay = dbs_info->freq_lo_jiffies;
 	}
-	queue_delayed_work_on(cpu, kondemand_wq, &dbs_info->work, delay);
+	queue_delayed_work_on(cpu, kondemandboost_wq, &dbs_info->work, delay);
 	mutex_unlock(&dbs_info->timer_mutex);
 }
 
@@ -589,7 +660,7 @@ static inline void dbs_timer_init(struct cpu_dbs_info_s *dbs_info)
 
 	dbs_info->sample_type = DBS_NORMAL_SAMPLE;
 	INIT_DELAYED_WORK_DEFERRABLE(&dbs_info->work, do_dbs_timer);
-	queue_delayed_work_on(dbs_info->cpu, kondemand_wq, &dbs_info->work,
+	queue_delayed_work_on(dbs_info->cpu, kondemandboost_wq, &dbs_info->work,
 		delay);
 }
 
@@ -653,7 +724,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		}
 		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
-		ondemand_powersave_bias_init_cpu(cpu);
+		ondemandboost_powersave_bias_init_cpu(cpu);
 		/*
 		 * Start the timerschedule work, when this governor
 		 * is used for first time
@@ -739,32 +810,32 @@ static int __init cpufreq_gov_dbs_init(void)
 			MIN_SAMPLING_RATE_RATIO * jiffies_to_usecs(10);
 	}
 
-	kondemand_wq = create_workqueue("kondemand");
-	if (!kondemand_wq) {
-		printk(KERN_ERR "Creation of kondemand failed\n");
+	kondemandboost_wq = create_workqueue("kondemandboost");
+	if (!kondemandboost_wq) {
+		printk(KERN_ERR "Creation of kondemandboost failed\n");
 		return -EFAULT;
 	}
-	err = cpufreq_register_governor(&cpufreq_gov_ondemand);
+	err = cpufreq_register_governor(&cpufreq_gov_ondemandboost);
 	if (err)
-		destroy_workqueue(kondemand_wq);
+		destroy_workqueue(kondemandboost_wq);
 
 	return err;
 }
 
 static void __exit cpufreq_gov_dbs_exit(void)
 {
-	cpufreq_unregister_governor(&cpufreq_gov_ondemand);
-	destroy_workqueue(kondemand_wq);
+	cpufreq_unregister_governor(&cpufreq_gov_ondemandboost);
+	destroy_workqueue(kondemandboost_wq);
 }
 
 
 MODULE_AUTHOR("Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>");
 MODULE_AUTHOR("Alexey Starikovskiy <alexey.y.starikovskiy@intel.com>");
-MODULE_DESCRIPTION("'cpufreq_ondemand' - A dynamic cpufreq governor for "
+MODULE_DESCRIPTION("'cpufreq_ondemandboost' - A dynamic cpufreq governor for "
 	"Low Latency Frequency Transition capable processors");
 MODULE_LICENSE("GPL");
 
-#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND
+#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMANDBOOST
 fs_initcall(cpufreq_gov_dbs_init);
 #else
 module_init(cpufreq_gov_dbs_init);

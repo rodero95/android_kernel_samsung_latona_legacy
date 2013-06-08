@@ -721,8 +721,7 @@ static ssize_t L_enable_show(struct device *dev, struct device_attribute *attr, 
 
 static ssize_t L_enable_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-    ssize_t ret = strlen(buf);
-    int enabled = 0;
+    ssize_t ret = count;
 
     trace_in();
 
@@ -731,18 +730,17 @@ static ssize_t L_enable_store(struct device *dev, struct device_attribute *attr,
         if( L_dev_polling_stop() != 1 )
         {
             printk(KERN_ERR "L_dev_polling_stop() : fail!! \n");
-            ret = 0;
+            ret = -EPERM;
         }
         pl_madc_power_off();
         pl_sensor_power_off();
     }
     else if(strncmp(buf, "1", 1) == 0 )
     {
-        enabled = 1;
         if( L_dev_polling_start() != 0 )
         {
             printk(KERN_ERR "L_dev_polling_start() : fail!! \n");
-            ret = 0;
+            ret = -EPERM;
         }
         turn_resources_on_for_adc();
 
@@ -771,9 +769,7 @@ static ssize_t L_delay_show(struct device *dev, struct device_attribute *attr, c
 
 static ssize_t L_delay_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-    ssize_t ret = strlen(buf);
     unsigned int delay;
-    int enabled = 0;
     
     trace_in();
 
@@ -781,19 +777,11 @@ static ssize_t L_delay_store(struct device *dev, struct device_attribute *attr, 
     delay /= 1000*1000; //nanoseconds->milliseconds
     L_dev_set_polling_interval(delay ? delay : 1);
 
-    if( L_dev_get_polling_state() == L_SYSFS_POLLING_ON)
-    {
-        enabled = 1;
-    }
-    else
-    {
-        enabled = 0;
-    }
     debug("   sensor L_interval_store() : %lu sec", delay );
 
     trace_out();
 
-    return ret;
+    return count;
 
 }
 

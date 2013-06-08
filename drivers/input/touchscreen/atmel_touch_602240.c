@@ -90,6 +90,8 @@ extern int fh_err_count;
 
 uint8_t touch_state;
 
+extern int calibration_disabled;
+
 #endif	// __CONFIG_SAMSUNG__
 
 /*------------------------------ definition block -----------------------------------*/
@@ -994,6 +996,9 @@ static void autocal_timer_out (unsigned long v)
 
 void enable_autocal_timer(unsigned int value)
 {
+	if (calibration_disabled)
+		return;
+
 	if((!is_boot_state && !is_suspend_state) && !qt60224_notfound_flag)
 	{
 		set_autocal(value);
@@ -1004,6 +1009,8 @@ void enable_autocal_timer(unsigned int value)
 // ryun 20100208 
 void check_chip_calibration(unsigned char one_touch_input_flag)
 {
+	if (calibration_disabled)
+		return;
 
 	uint8_t data_buffer[100] = { 0 };
 	uint8_t try_ctr = 0;
@@ -1136,7 +1143,7 @@ void check_chip_calibration(unsigned char one_touch_input_flag)
 						/* cal was good - don't need to check any more */
 						cal_check_flag = 0;
 						qt_timer_state = 0;
-						qt_time_point = 0;
+						qt_time_point = jiffies_to_msecs(jiffies);
 
 #if TSP_DEBUG
 						printk(KERN_DEBUG "[TSP] reset acq atchcalst=%d, atchcalsthr=%d\n", config_normal.acquisition_config.atchcalst, config_normal.acquisition_config.atchcalsthr );
@@ -1167,7 +1174,7 @@ void check_chip_calibration(unsigned char one_touch_input_flag)
 				/* cal was bad - must recalibrate and check afterwards */
 				calibrate_chip();
 				qt_timer_state = 0;
-				qt_time_point = 0;
+				qt_time_point = jiffies_to_msecs(jiffies);
 			}
 			else
 			{
@@ -1178,7 +1185,7 @@ void check_chip_calibration(unsigned char one_touch_input_flag)
 				 * message to confirm */
 				cal_check_flag = 1;
 				qt_timer_state= 0;
-				qt_time_point = 0;
+				qt_time_point = jiffies_to_msecs(jiffies);
 			}
 		}
 	}
@@ -1646,6 +1653,11 @@ void atmel_touch_probe(void)
 		}
 		msleep(100);
 	}
+#if 0
+        /*
+         * This calibration is not necessary, remove it to prevent
+         * miscalibrations on boot.
+         */
 	else 
 	{
 		if(calibrate_chip() != WRITE_MEM_OK)
@@ -1655,6 +1667,7 @@ void atmel_touch_probe(void)
 			return ;
 		}
 	}
+#endif
 
    /* Make sure that if the CHANGE line was asserted at the beginning, 
     * before the interrupt handler was monitoring it, we do a read. */
@@ -2124,6 +2137,17 @@ uint8_t reset_chip(void)
  */
 uint8_t calibrate_chip(void)
 {
+   if (calibration_disabled) {
+#if TSP_DEBUG
+       printk("[TSP] skip calibration\n");
+#endif
+       return WRITE_MEM_OK;
+   } else {
+#if TSP_DEBUG
+       printk("[TSP] don't skip calibration\n");
+#endif
+   }
+
    uint8_t data = 1u;
 #if 1
 	int ret = WRITE_MEM_OK;
