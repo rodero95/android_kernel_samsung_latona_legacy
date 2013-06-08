@@ -129,15 +129,13 @@ static int g_enable_touchscreen_handler = 0;	// fixed for i2c timeout error.
 
 #define DRIVER_FILTER
 
-#ifdef DRIVER_FILTER
-static int driver_filter_enabled = 1;
-#endif
-
 #if defined(CONFIG_MACH_SAMSUNG_LATONA) || defined(CONFIG_MACH_SAMSUNG_P1WIFI)
 #define MAX_TOUCH_X_RESOLUTION	480
 #define MAX_TOUCH_Y_RESOLUTION	800
 int atmel_ts_tk_keycode[] = {KEY_MENU, KEY_BACK};
 #endif
+
+int calibration_disabled = 1;
 
 struct touchscreen_t;
 
@@ -234,11 +232,9 @@ static DEVICE_ATTR(set_write, S_IRUGO | S_IWUSR, set_write_show, set_write_store
 static ssize_t bootcomplete_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t n);
 static struct kobj_attribute bootcomplete_attr =        __ATTR(bootcomplete, 0220, NULL, bootcomplete_store);
 
-#ifdef DRIVER_FILTER
-static ssize_t driver_filter_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size);
-static ssize_t driver_filter_show(struct device *dev, struct device_attribute *attr, char *buf);
-static DEVICE_ATTR(driver_filter, S_IRUGO | S_IWUSR, driver_filter_show, driver_filter_store);
-#endif
+static ssize_t disable_calibration_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size);
+static ssize_t disable_calibration_show(struct device *dev, struct device_attribute *attr, char *buf);
+static DEVICE_ATTR(disable_calibration, S_IRUGO | S_IWUSR, disable_calibration_show, disable_calibration_store);
 
 extern void bootcomplete(void);
 extern void enable_autocal_timer(unsigned int value);
@@ -262,8 +258,7 @@ static ssize_t bootcomplete_store(struct kobject *kobj, struct kobj_attribute *a
 	return n;
 }
 
-#ifdef DRIVER_FILTER
-static ssize_t driver_filter_store(struct device *dev, struct device_attribute *attr,
+static ssize_t disable_calibration_store(struct device *dev, struct device_attribute *attr,
 					const char *buf, size_t size)
 {
 	int value;
@@ -271,22 +266,22 @@ static ssize_t driver_filter_store(struct device *dev, struct device_attribute *
 	sscanf(buf, "%d", &value);
 
 	if (value == 0) {
-		driver_filter_enabled = 0;
+		calibration_disabled = 0;
 	} else if (value == 1) {
-		driver_filter_enabled = 1;
+		calibration_disabled = 1;
 	} else {
-		printk(KERN_ERR "driver_filter_store: Invalid value\n");
+		printk(KERN_ERR "%s: Invalid value\n", __func__);
 		return -EINVAL;
 	}
 
 	return size;
 }
 
-static ssize_t driver_filter_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t disable_calibration_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", driver_filter_enabled);
+	return sprintf(buf, "%d\n", calibration_disabled);
 }
-#endif
+
 /*------------------------------ for tunning ATmel - end ----------------------------*/
 
 extern void restore_acquisition_config(void);
@@ -601,8 +596,7 @@ void handle_multi_touch(uint8_t *atmel_msg)
 			touch_info[id].x = x;
 			touch_info[id].y = y;
 #if defined(DRIVER_FILTER)
-			if (driver_filter_enabled)
-				equalize_coordinate(1, id, &touch_info[id].x, &touch_info[id].y);
+			equalize_coordinate(1, id, &touch_info[id].x, &touch_info[id].y);
 #endif
 		}
 		/* case.2 - case 10010000 -> DETECT & MOVE */
@@ -614,8 +608,7 @@ void handle_multi_touch(uint8_t *atmel_msg)
 			touch_info[id].x = x;
 			touch_info[id].y = y;
 #if defined(DRIVER_FILTER)
-			if (driver_filter_enabled)
-				equalize_coordinate(0, id, &touch_info[id].x, &touch_info[id].y);
+			equalize_coordinate(0, id, &touch_info[id].x, &touch_info[id].y);
 #endif
 		}
 		/* case.3 - case 00100000 -> RELEASE */
@@ -1026,13 +1019,12 @@ ts_kobj = kobject_create_and_add("touchscreen", NULL);
 		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
 		return error;
 	}
-#ifdef DRIVER_FILTER
-	error = sysfs_create_file(ts_kobj, &dev_attr_driver_filter.attr);
+
+	error = sysfs_create_file(ts_kobj, &dev_attr_disable_calibration.attr);
 	if (error) {
 		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
 		return error;
 	}
-#endif
 
 // ]] This will create the touchscreen sysfs entry under the /sys directory
 
