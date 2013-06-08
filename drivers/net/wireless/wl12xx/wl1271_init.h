@@ -1,5 +1,5 @@
 /*
- * This file is part of wl12xx
+ * This file is part of wl1271
  *
  * Copyright (C) 2009 Nokia Corporation
  *
@@ -21,39 +21,16 @@
  *
  */
 
-#ifndef _LINUX_WL12XX_H
-#define _LINUX_WL12XX_H
+#ifndef __WL1271_INIT_H__
+#define __WL1271_INIT_H__
 
-/* The board reference clock values */
-enum {
-	WL12XX_REFCLOCK_19 = 0,	/* 19.2 MHz */
-	WL12XX_REFCLOCK_26 = 1,	/* 26 MHz */
-	WL12XX_REFCLOCK_38 = 2,	/* 38.4 MHz */
-	WL12XX_REFCLOCK_54 = 3,	/* 54 MHz */
-};
+#include "wl1271.h"
 
-struct wl12xx_platform_data {
-	void (*set_power)(bool enable);
-	/* SDIO only: IRQ number if WLAN_IRQ line is used, 0 for SDIO IRQs */
-	int irq;
-	bool use_eeprom;
-	int board_ref_clock;
-};
-
-#ifdef CONFIG_WL12XX_PLATFORM_DATA
-
-int wl12xx_set_platform_data(const struct wl12xx_platform_data *data);
-
-#else
-
-static inline
-int wl12xx_set_platform_data(const struct wl12xx_platform_data *data)
-{
-	return -ENOSYS;
-}
-
-#endif
-
-const struct wl12xx_platform_data *wl12xx_get_platform_data(void);
+int wl1271_hw_init_power_auth(struct wl1271 *wl);
+int wl1271_init_templates_config(struct wl1271 *wl);
+int wl1271_init_phy_config(struct wl1271 *wl);
+int wl1271_init_pta(struct wl1271 *wl);
+int wl1271_init_energy_detection(struct wl1271 *wl);
+int wl1271_hw_init(struct wl1271 *wl);
 
 #endif
