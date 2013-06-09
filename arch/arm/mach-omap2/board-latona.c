@@ -465,7 +465,9 @@ static void __init omap_board_init(void)
 	printk("-----------------------------------------------------------\n");
 	printk("\n");
 
+	printk("***latona wifi init++\n");
 	latona_wifi_init();
+	printk("***latona wifi init--\n");
 	omap_board_peripherals_init();
 	omap_board_display_init(OMAP_DSS_VENC_TYPE_COMPOSITE);
 	usb_uhhtll_init(&usbhs_pdata);

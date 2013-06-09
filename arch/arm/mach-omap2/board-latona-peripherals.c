@@ -498,10 +498,12 @@ static struct omap2_hsmmc_info mmc[] = {
 		.power_saving	= true,
 	},
 	{
+		.name		= "wl1271",
 		.mmc		= 3,
-		.caps		= MMC_CAP_4_BIT_DATA,
-		.gpio_cd	= -EINVAL,
+		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
 		.gpio_wp	= -EINVAL,
+		.gpio_cd	= -EINVAL,
+		.nonremovable	= true,
 	},
 	{}      /* Terminator */
 };
@@ -571,13 +573,13 @@ static int omap_board_twl_gpio_setup(struct device *dev,
 	//mmc[0].gpio_cd = gpio + 0;
 
 	 mmc[1].gpio_cd = 23;
-#ifdef CONFIG_MMC_EMBEDDED_SDIO
-	/* The controller that is connected to the 128x device
-	 * should have the card detect gpio disabled. This is
-	 * achieved by initializing it with a negative value
-	 */
-	mmc[CONFIG_TIWLAN_MMC_CONTROLLER - 1].gpio_cd = -EINVAL;
-#endif
+//#ifdef CONFIG_MMC_EMBEDDED_SDIO
+//	/* The controller that is connected to the 128x device
+//	 * should have the card detect gpio disabled. This is
+//	 * achieved by initializing it with a negative value
+//	 */
+//	mmc[CONFIG_TIWLAN_MMC_CONTROLLER - 1].gpio_cd = -EINVAL;
+//#endif
 
 	omap2_hsmmc_init(mmc);
 
@@ -617,18 +619,18 @@ static struct omap_board_config_kernel board_config[] __initdata = {
 };
 
 
-#ifdef CONFIG_WL127X_RFKILL
-static struct wl127x_rfkill_platform_data wl127x_plat_data = {
-	.bt_nshutdown_gpio = OMAP_GPIO_BT_NRST,	/* Bluetooth Enable GPIO */
-	.fm_enable_gpio = -1,	/* FM Enable GPIO */
-};
-
-static struct platform_device zoom2_wl127x_device = {
-	.name = "wl127x-rfkill",
-	.id = -1,
-	.dev.platform_data = &wl127x_plat_data,
-};
-#endif
+//#ifdef CONFIG_WL127X_RFKILL
+//static struct wl127x_rfkill_platform_data wl127x_plat_data = {
+//	.bt_nshutdown_gpio = OMAP_GPIO_BT_NRST,	/* Bluetooth Enable GPIO */
+//	.fm_enable_gpio = -1,	/* FM Enable GPIO */
+//};
+//
+//static struct platform_device zoom2_wl127x_device = {
+//	.name = "wl127x-rfkill",
+//	.id = -1,
+//	.dev.platform_data = &wl127x_plat_data,
+//};
+//#endif
 
 #ifdef CONFIG_SAMSUNG_HW_EMU_BOARD
 static int omap_board_twl4030_keymap[] = {
@@ -809,9 +811,9 @@ static struct spi_board_info board_spi_board_info[] __initdata = {
 static struct platform_device *board_devices[] __initdata = {
 
 	&headset_switch_device,
-#ifdef CONFIG_WL127X_RFKILL
-	&zoom2_wl127x_device,
-#endif
+//#ifdef CONFIG_WL127X_RFKILL
+//	&zoom2_wl127x_device,
+//#endif
 #ifdef CONFIG_INPUT_ZEUS_EAR_KEY
 	&board_ear_key_device,
 #endif
@@ -1193,8 +1195,9 @@ void __init omap_board_peripherals_init(void)
        omap_board_usb_data.sensor_dev = &samsung_pl_sensor_power_device.dev;    // Add for regulator
        
 	spi_register_board_info( board_spi_board_info, ARRAY_SIZE( board_spi_board_info ) );
-       
-	   platform_device_register(&omap_vwlan_device);
+    printk("***wl1271 peripheral device register++\n");   
+	platform_device_register(&omap_vwlan_device);
+	printk("***wl1271 peripheral device register--\n");
 	atmel_dev_init();
 	omap_serial_init(omap_serial_platform_data);
 	usb_musb_init(&musb_board_data);
