@@ -19,11 +19,6 @@
 #include <plat/omap-pm.h>
 #include <plat/omap_device.h>
 
-#ifdef CONFIG_TIWLAN_SDIO
-#include <linux/mmc/sdio_ids.h>
-#include <linux/mmc/sdio_func.h>
-#endif
-
 #include "hsmmc.h"
 
 #if defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
@@ -229,46 +224,6 @@ static int nop_mmc_set_power(struct device *dev, int slot, int power_on,
 
 static struct omap_mmc_platform_data *hsmmc_data[OMAP44XX_NR_MMC] __initdata;
 
-#ifdef CONFIG_TIWLAN_SDIO
-static struct sdio_embedded_func wifi_func_array[] = {
-	{
-		.f_class        = SDIO_CLASS_NONE,
-		.f_maxblksize   = 512,
-	},
-	{
-		.f_class        = SDIO_CLASS_WLAN,
-		.f_maxblksize   = 512,
-	},
-};
-
-static struct embedded_sdio_data omap_wifi_emb_data = {
-	.cis    = {
-		.vendor         = SDIO_VENDOR_ID_TI,
-		.device         = SDIO_DEVICE_ID_TI_WL12xx,
-		.blksize        = 512,
-#ifdef CONFIG_ARCH_OMAP3
-		.max_dtr        = 24000000,
-#else
-		.max_dtr        = 48000000,
-#endif
-	},
-	.cccr   = {
-		.multi_block	= 1,
-		.low_speed	= 0,
-		.wide_bus	= 1,
-		.high_power	= 0,
-#ifdef CONFIG_ARCH_OMAP3
-		.high_speed	= 0,
-#else
-		.high_speed	= 1,
-#endif
-		.disable_cd	= 1,
-	},
-	.funcs  = wifi_func_array,
-	.quirks = MMC_QUIRK_VDD_165_195 | MMC_QUIRK_LENIENT_FUNC0,
-};
-#endif
-
 void __init omap2_hsmmc_init(struct omap2_hsmmc_info *controllers)
 {
 	struct omap2_hsmmc_info *c;
@@ -325,22 +280,6 @@ void __init omap2_hsmmc_init(struct omap2_hsmmc_info *controllers)
 			snprintf(hc->name, ARRAY_SIZE(hc->name),
 				"mmc%islot%i", c->mmc, 1);
 
-#ifdef CONFIG_TIWLAN_SDIO
-		if (c->mmc == CONFIG_TIWLAN_MMC_CONTROLLER) {
-			mmc->slots[0].embedded_sdio = &omap_wifi_emb_data;
-			mmc->slots[0].register_status_notify =
-				&omap_wifi_status_register;
-			mmc->slots[0].card_detect = &omap_wifi_status;
-		}
-#endif
-
-#ifndef CONFIG_TIWLAN_SDIO
-/* CHKIM 2011/04/01 for TI-WIFI */
-	if (c->mmc == /* CONFIG_TIWLAN_MMC_CONTROLLER*/ 3) 
-	{
-		mmc->name = "TIWLAN_SDIO";
-	}
-#endif
 		mmc->slots[0].name = hc->name;
 		mmc->nr_slots = 1;
 		mmc->slots[0].caps = c->caps;
@@ -443,18 +382,12 @@ void __init omap2_hsmmc_init(struct omap2_hsmmc_info *controllers)
 						hsmmc23_before_set_reg;
 				mmc->slots[0].after_set_reg = NULL;
 			}
-#ifdef CONFIG_TIWLAN_SDIO
-			mmc->slots[0].ocr_mask  = MMC_VDD_165_195;
-#endif
 			break;
 		case 4:
 		case 5:
 			/* TODO Update required */
 			mmc->slots[0].before_set_reg = NULL;
 			mmc->slots[0].after_set_reg = NULL;
-#ifdef CONFIG_TIWLAN_SDIO
-			mmc->slots[0].ocr_mask  = MMC_VDD_165_195;
-#endif
 			break;
 		default:
 			pr_err("MMC%d configuration not supported!\n", c->mmc);
