@@ -1065,6 +1065,7 @@ void __init omap_board_peripherals_init(void)
 	twl4030_get_scripts(&latona_t2scripts_data);
 
        board_onenand_init();
+	   latona_power_init();
 
 	omap_i2c_init();
 

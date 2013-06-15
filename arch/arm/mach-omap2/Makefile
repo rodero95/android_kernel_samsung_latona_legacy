@@ -212,6 +212,7 @@ obj-$(CONFIG_MACH_OMAP_SAMSUNG)		+= omap3-gptimer12.o \
 obj-$(CONFIG_MACH_SAMSUNG_LATONA)	+= board-latona.o \
                                            board-latona-display.o \
 					   board-latona-peripherals.o \
+					   board-latona-power.o \
 					   hsmmc.o \
 					   twl4030.o
 
