@@ -53,9 +53,4 @@ static inline void ssleep(unsigned int seconds)
 
 void usleep_range(unsigned long min, unsigned long max);
 
-static inline void ssleep(unsigned int seconds)
-{
-	msleep(seconds * 1000);
-}
-
 #endif /* defined(_LINUX_DELAY_H) */
