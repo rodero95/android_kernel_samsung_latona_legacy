@@ -29,10 +29,6 @@ menu "Immersion touch sense driver(vibetonz)"
 source "samsung/vibetonz/Kconfig"
 endmenu
 
-menu "Samsung battery driver"
-source "samsung/battery/Kconfig"
-endmenu
-
 menu "Si4709 FM radio"
 source "samsung/fm_si4709/Kconfig"
 endmenu

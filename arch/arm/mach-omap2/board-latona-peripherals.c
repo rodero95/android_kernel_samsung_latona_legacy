@@ -683,81 +683,6 @@ static struct platform_device board_power_key_device = {
 	.resource = board_power_key_resources,
 };
 
-static struct resource samsung_charger_resources[] = {
-	[0] = {
-	       // USB IRQ
-	       .start = 0,
-	       .end = 0,
-	       .flags = IORESOURCE_IRQ | IORESOURCE_IRQ_SHAREABLE,
-	       },
-	[1] = {
-	       // TA IRQ
-	       .start = 0,
-	       .end = 0,
-	       .flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE | IORESOURCE_IRQ_LOWEDGE,
-	       },
-	[2] = {
-	       // CHG_ING_N
-	       .start = 0,
-	       .end = 0,
-	       .flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE | IORESOURCE_IRQ_LOWEDGE,
-	       },
-	[3] = {
-	       // CHG_EN
-	       .start = 0,
-	       .end = 0,
-	       .flags = IORESOURCE_IRQ,
-	       },
-};
-
-static int samsung_charger_config_data[] = {
-	// [ CHECK VF USING ADC ]
-	/*   1. ENABLE  (true, flase) */
-	false,
-
-	/*   2. ADCPORT (ADCPORT NUM) */
-	1,
-
-	// [ SUPPORT CHG_ING IRQ FOR CHECKING FULL ]
-	/*   1. ENABLE  (true, flase) */
-	true,
-};
-
-static int samsung_battery_config_data[] = {
-	// [ SUPPORT MONITORING CHARGE CURRENT FOR CHECKING FULL ]
-	/*   1. ENABLE  (true, flase) */
-	false,
-	/*   2. ADCPORT (ADCPORT NUM) */
-	4,
-
-	// [ SUPPORT MONITORING TEMPERATURE OF THE SYSTEM FOR BLOCKING CHARGE ]
-	/*   1. ENABLE  (true, flase) */
-	true,
-
-	/*   2. ADCPORT (ADCPORT NUM) */
-	0,
-};
-
-static struct platform_device samsung_charger_device = {
-	.name = "secChargerDev",
-	.id = -1,
-	.num_resources = ARRAY_SIZE(samsung_charger_resources),
-	.resource = samsung_charger_resources,
-
-	.dev = {
-		.platform_data = &samsung_charger_config_data,
-		}
-};
-
-static struct platform_device samsung_battery_device = {
-	.name = "secBattMonitor",
-	.id = -1,
-	.num_resources = 0,
-	.dev = {
-		.platform_data = &samsung_battery_config_data,
-		}
-};
-
 static struct led_info sec_keyled_list[] = {
 	{
 	 .name = "button-backlight",
@@ -818,8 +743,6 @@ static struct platform_device *board_devices[] __initdata = {
 	&board_ear_key_device,
 #endif
 	&board_power_key_device,
-	&samsung_battery_device,
-	&samsung_charger_device,
 	&samsung_vibrator_device,
 	&samsung_pl_sensor_power_device,
 	&samsung_led_device,
@@ -949,11 +872,6 @@ static struct i2c_board_info __initdata board_i2c_boardinfo1[] = {
 	{
 		I2C_BOARD_INFO("cam_pmic", CAM_PMIC_I2C_ADDR),
 	},
-	{
-		I2C_BOARD_INFO("secFuelgaugeDev", 0x36),
-		.flags = I2C_CLIENT_WAKE,
-		.irq = OMAP_GPIO_IRQ(OMAP_GPIO_FUEL_INT_N),
-	},
 #endif	
 #if !defined(CONFIG_INPUT_GP2A_USE_GPIO_I2C)
 	{
@@ -1011,47 +929,6 @@ static inline void __init board_init_power_key(void)
 	}
 	gpio_direction_input(OMAP_GPIO_KEY_PWRON);
 	gpio_direction_input(OMAP_GPIO_KEY_HOME);
-}
-
-static inline void __init board_init_battery(void)
-{
-	samsung_charger_resources[0].start = 0;	//gpio_to_irq(OMAP_GPIO_USBSW_NINT);;    
-	if (gpio_request(OMAP_GPIO_TA_NCONNECTED, "ta_nconnected irq") < 0) {
-		printk(KERN_ERR
-		       "Failed to request GPIO%d for ta_nconnected IRQ\n",
-		       OMAP_GPIO_TA_NCONNECTED);
-		samsung_charger_resources[1].start = -1;
-	} else {
-		samsung_charger_resources[1].start =
-		    gpio_to_irq(OMAP_GPIO_TA_NCONNECTED);
-//      Daegil.im 2011-02-10 : below code was disabled for build			
-//		omap_set_gpio_debounce_time(OMAP_GPIO_TA_NCONNECTED, 3);
-//		omap_set_gpio_debounce(OMAP_GPIO_TA_NCONNECTED, true);
-	}
-
-	if (gpio_request(OMAP_GPIO_CHG_ING_N, "charge full irq") < 0) {
-		printk(KERN_ERR
-		       "Failed to request GPIO%d for charge full IRQ\n",
-		       OMAP_GPIO_CHG_ING_N);
-		samsung_charger_resources[2].start = -1;
-	} else {
-		samsung_charger_resources[2].start =
-		    gpio_to_irq(OMAP_GPIO_CHG_ING_N);
-//		omap_set_gpio_debounce_time(OMAP_GPIO_CHG_ING_N, 3);
-//		omap_set_gpio_debounce(OMAP_GPIO_CHG_ING_N, true);
-	}
-
-	if (gpio_request(OMAP_GPIO_CHG_EN, "Charge enable gpio") < 0) {
-		printk(KERN_ERR
-		       "Failed to request GPIO%d for charge enable gpio\n",
-		       OMAP_GPIO_CHG_EN);
-		samsung_charger_resources[3].start = -1;
-	} else {
-		samsung_charger_resources[3].start =
-		    gpio_to_irq(OMAP_GPIO_CHG_EN);
-	}
-
-	samsung_charger_resources[3].start = gpio_to_irq(OMAP_GPIO_CHG_EN);
 }
 
 static void atmel_dev_init(void)
@@ -1203,7 +1080,6 @@ void __init omap_board_peripherals_init(void)
 	usb_musb_init(&musb_board_data);
 	board_init_power_key();
 	enable_board_wakeup_source();
-	board_init_battery();
 #ifdef CONFIG_INPUT_ZEUS_EAR_KEY
 	board_init_ear_key();
 #endif

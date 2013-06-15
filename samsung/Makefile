@@ -23,7 +23,6 @@
 # Version : Baby-Raccoon
 ##
 
-obj-$(CONFIG_SAMSUNG_BATTERY)	+= battery/
 obj-$(CONFIG_FMRADIO)	+= fm_si4709/
 obj-$(CONFIG_SAMSUNG_VIBETONZ)	+= vibetonz/
 obj-$(CONFIG_INPUT_YAS529)	+= yas529/
