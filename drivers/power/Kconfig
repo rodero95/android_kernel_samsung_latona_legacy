@@ -149,6 +149,36 @@ config BATTERY_MAX17040
 	  MAX17040 is fuel-gauge systems for lithium-ion (Li+) batteries
 	  in handheld and portable equipment. The MAX17040 is configured
 	  to operate with a single lithium cell
+	  
+config USE_CHG_ADC_POLLING
+  bool "Use Charging current adc for detecting fully charged condition"
+  depends on BATTERY_MAX17040
+  default n
+  help
+    Say Y here to enable support for using charging current adc
+    for detecting fully charged condition.
+    If you select this option, we will not use CHG_ING_N interrupt
+    for detecting fully charged.
+
+config ADJUST_EVENT_CHARGING_CURRENT
+  bool "Adjust Event Charging Current"
+  depends on BATTERY_MAX17040
+  default n
+  help
+    Say Y here to enable support for adjusting event charging current.
+    Usually, TA charing current is adjusted to USB charging current
+    in event situation. Charging current will be restored after
+    event action is ended.
+
+config TEMP_BLOCK_FOR_CAM_RECORDING
+  bool "Temp Block for Camera Recording"
+  depends on ADJUST_EVENT_CHARGING_CURRENT
+  default n
+  help
+    Say Y here to enable support for adjusting charging current
+    while recording the movie. In specific model, charging currnet
+    should be adjusted to reduce the heat of device. Proper temp
+    threshold should be selected.
 
 config BATTERY_Z2
 	tristate "Z2 battery driver"
