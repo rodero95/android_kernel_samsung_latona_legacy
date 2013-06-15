@@ -37,6 +37,7 @@
 extern void ldp_flash_init(void);
 extern void twl4030_bci_battery_init(void);
 extern void __init latona_power_init(void);
+extern void __init latona_connector_init(void);
 
 #define	IH_TWL4030_BASE		IH_BOARD_BASE
 #define	IH_TWL4030_END		(IH_TWL4030_BASE+8)

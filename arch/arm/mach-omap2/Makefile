@@ -213,6 +213,7 @@ obj-$(CONFIG_MACH_SAMSUNG_LATONA)	+= board-latona.o \
                                            board-latona-display.o \
 					   board-latona-peripherals.o \
 					   board-latona-power.o \
+					   board-latona-connector.o \
 					   hsmmc.o \
 					   twl4030.o
 

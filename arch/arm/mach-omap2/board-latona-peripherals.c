@@ -840,13 +840,8 @@ static struct i2c_board_info __initdata omap_board_i2c_boardinfo[] = {
 static struct i2c_board_info __initdata board_i2c_boardinfo1[] = {
 
 #if 1
-#if defined(CONFIG_FSA9480_MICROUSB)
-	{
-		I2C_BOARD_INFO("fsa9480", 0x25),
-		.flags = I2C_CLIENT_WAKE,
-		.irq = OMAP_GPIO_IRQ(OMAP_GPIO_JACK_NINT),
-	},
-#elif defined(CONFIG_MICROUSBIC_INTR)
+
+#if defined(CONFIG_MICROUSBIC_INTR)
 	{
 		I2C_BOARD_INFO("microusbic", 0x25),
 	},
@@ -1066,6 +1061,7 @@ void __init omap_board_peripherals_init(void)
 
        board_onenand_init();
 	   latona_power_init();
+	   latona_connector_init();
 
 	omap_i2c_init();
 
