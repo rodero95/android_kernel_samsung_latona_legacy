@@ -184,6 +184,8 @@ static inline int omap_pm_get_pmic_lp_time(u32 *tstart, u32 *tshut)
 }
 static inline void omap_pm_set_osc_lp_time(u32 tstart, u32 tshut) { }
 static inline void omap_pm_set_pmic_lp_time(u32 tstart, u32 tshut) { }
+void omap_pm_enable_off_mode(void);
+void omap_pm_disable_off_mode(void);
 #endif
 
 void omap_pm_enable_off_mode(void);
