@@ -61,6 +61,83 @@ struct device *omap4_get_dsp_device(void)
 }
 EXPORT_SYMBOL(omap4_get_dsp_device);
 
+/**
+ * omap_pm_get_pmic_lp_time() - retrieve the oscillator time
+ * @tstart:     pointer to startup time in uSec
+ * @tshut:      pointer to shutdown time in uSec
+ *
+ * if the pointers are invalid, returns error, else
+ * populates the tstart and tshut values with the currently
+ * stored values.
+ */
+int omap_pm_get_osc_lp_time(u32 *tstart, u32 *tshut)
+{
+        if (!tstart || !tshut)
+                return -EINVAL;
+
+        *tstart = _pm_lp_desc.oscillator_startup_time;
+        *tshut = _pm_lp_desc.oscillator_shutdown_time;
+
+        return 0;
+}
+
+/**
+ * omap_pm_get_pmic_lp_time() - retrieve the PMIC time
+ * @tstart:     pointer to startup time in uSec
+ * @tshut:      pointer to shutdown time in uSec
+ *
+ * if the pointers are invalid, returns error, else
+ * populates the tstart and tshut values with the currently
+ * stored values.
+ */
+int omap_pm_get_pmic_lp_time(u32 *tstart, u32 *tshut)
+{
+        if (!tstart || !tshut)
+                return -EINVAL;
+
+        *tstart = _pm_lp_desc.pmic_startup_time;
+        *tshut = _pm_lp_desc.pmic_shutdown_time;
+
+        return 0;
+}
+
+/**
+ * omap_pm_set_osc_lp_time() - setup the system oscillator time
+ * @tstart:     startup time rounded up to uSec
+ * @tshut:      shutdown time rounded up to uSec
+ *
+ * All boards do need an oscillator for the device to function.
+ * The startup and stop time of these oscillators vary. Populate
+ * from the board file to optimize the timing.
+ * This function is meant to be used at boot-time configuration.
+ *
+ * NOTE: This API is intended to be invoked from board file
+ */
+void __init omap_pm_set_osc_lp_time(u32 tstart, u32 tshut)
+{
+        _pm_lp_desc.oscillator_startup_time = tstart;
+        _pm_lp_desc.oscillator_shutdown_time = tshut;
+}
+
+/**
+ * omap_pm_set_pmic_lp_time() - setup the pmic low power time
+ * @tstart:     startup time rounded up to uSec
+ * @tshut:      shutdown time rounded up to uSec
+ *
+ * Store the time for PMIC to enter to lowest state supported.
+ * in the case of multiple PMIC on a platform, choose the one
+ * that ends the sequence for LP state such as OFF and starts
+ * the sequence such as wakeup from OFF - e.g. a PMIC that
+ * controls core-domain.
+ * This function is meant to be used at boot-time configuration.
+ */
+void __init omap_pm_set_pmic_lp_time(u32 tstart, u32 tshut)
+{
+        _pm_lp_desc.pmic_startup_time = tstart;
+        _pm_lp_desc.pmic_shutdown_time = tshut;
+}
+
+
 #ifdef CONFIG_OMAP_PM
 
 /* Overclock vdd sysfs interface */
